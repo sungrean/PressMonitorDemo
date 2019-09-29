@@ -102,7 +102,8 @@
 	public const int FRM_LEN_SM = 8;
 	public const int FRM_LEN_RA = 8;
 	public const int FRM_LEN_AL = 8; //alarm
-	public const int MAX_CMD_LEN = 4096; //最大帧长度
+    public const int FRM_LEN_SC = 1484+7;       //set config 设置配置参数
+    public const int MAX_CMD_LEN = 4096; //最大帧长度
 	public const int DEFAULT_SUM = 0x55; //备用校验和
 	public const int MAX_PROFILE_ITEM_LEN = 1000;
 //C++ TO C# CONVERTER CRACKED BY X-CRACKER 2017 TODO TASK: The following #define constant was defined in different ways:

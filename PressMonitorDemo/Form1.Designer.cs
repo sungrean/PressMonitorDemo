@@ -29,8 +29,6 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            this.btnLogin = new System.Windows.Forms.Button();
-            this.btnLogoff = new System.Windows.Forms.Button();
             this.btnParamSet = new System.Windows.Forms.Button();
             this.btnClearnCount = new System.Windows.Forms.Button();
             this.btnChoseModel = new System.Windows.Forms.Button();
@@ -46,28 +44,6 @@
             this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.btnStop = new System.Windows.Forms.Button();
             this.SuspendLayout();
-            // 
-            // btnLogin
-            // 
-            this.btnLogin.Font = new System.Drawing.Font("宋体", 14.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnLogin.Location = new System.Drawing.Point(66, 68);
-            this.btnLogin.Name = "btnLogin";
-            this.btnLogin.Size = new System.Drawing.Size(83, 49);
-            this.btnLogin.TabIndex = 0;
-            this.btnLogin.Text = "登录";
-            this.btnLogin.UseVisualStyleBackColor = true;
-            this.btnLogin.Click += new System.EventHandler(this.btnLogin_Click);
-            // 
-            // btnLogoff
-            // 
-            this.btnLogoff.Font = new System.Drawing.Font("宋体", 14.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnLogoff.Location = new System.Drawing.Point(155, 68);
-            this.btnLogoff.Name = "btnLogoff";
-            this.btnLogoff.Size = new System.Drawing.Size(83, 49);
-            this.btnLogoff.TabIndex = 1;
-            this.btnLogoff.Text = "脱机";
-            this.btnLogoff.UseVisualStyleBackColor = true;
-            this.btnLogoff.Click += new System.EventHandler(this.btnLogoff_Click);
             // 
             // btnParamSet
             // 
@@ -96,6 +72,7 @@
             this.btnChoseModel.TabIndex = 4;
             this.btnChoseModel.Text = "选择基准波形";
             this.btnChoseModel.UseVisualStyleBackColor = true;
+            this.btnChoseModel.Click += new System.EventHandler(this.btnChoseModel_Click);
             // 
             // btnAlmReset
             // 
@@ -152,18 +129,18 @@
             // 
             // btnOpenPort
             // 
-            this.btnOpenPort.Location = new System.Drawing.Point(155, 12);
+            this.btnOpenPort.Location = new System.Drawing.Point(172, 12);
             this.btnOpenPort.Name = "btnOpenPort";
             this.btnOpenPort.Size = new System.Drawing.Size(75, 23);
             this.btnOpenPort.TabIndex = 10;
-            this.btnOpenPort.Text = "打开";
+            this.btnOpenPort.Text = "登陆";
             this.btnOpenPort.UseVisualStyleBackColor = true;
             this.btnOpenPort.Click += new System.EventHandler(this.btnOpenPort_Click);
             // 
             // cBoxCOMPORT
             // 
             this.cBoxCOMPORT.FormattingEnabled = true;
-            this.cBoxCOMPORT.Location = new System.Drawing.Point(66, 12);
+            this.cBoxCOMPORT.Location = new System.Drawing.Point(83, 12);
             this.cBoxCOMPORT.Name = "cBoxCOMPORT";
             this.cBoxCOMPORT.Size = new System.Drawing.Size(83, 20);
             this.cBoxCOMPORT.TabIndex = 11;
@@ -208,8 +185,6 @@
             this.Controls.Add(this.btnChoseModel);
             this.Controls.Add(this.btnClearnCount);
             this.Controls.Add(this.btnParamSet);
-            this.Controls.Add(this.btnLogoff);
-            this.Controls.Add(this.btnLogin);
             this.Name = "demo";
             this.ShowIcon = false;
             this.Text = "demo";
@@ -220,9 +195,6 @@
         }
 
         #endregion
-
-        private System.Windows.Forms.Button btnLogin;
-        private System.Windows.Forms.Button btnLogoff;
         private System.Windows.Forms.Button btnParamSet;
         private System.Windows.Forms.Button btnClearnCount;
         private System.Windows.Forms.Button btnChoseModel;

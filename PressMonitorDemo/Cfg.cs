@@ -15,10 +15,7 @@ using System.Windows.Forms;
 //C++ TO C# CONVERTER CRACKED BY X-CRACKER 2017 NOTE: C# has no need of forward class declarations:
 //class CCfg;
 
-//配置参数有效区间
- 
-     
-
+//配置参数有效区间 
 //设备配置结构体中使用到的配置类型定义
 public enum SYS_CFG_TYPE
 { // TRIG_MODE;
@@ -143,7 +140,7 @@ public struct tagCFG
 	public tagCode code  ; //密码设置
 	public SYS_CFG_TYPE unit; //单位 Kg / kN / lb 初值：Kg 设置在工作模式画面中显示的峰值压力的单位。
 	public int learnNum; //学习模式个数 2～10次 初值：4  设置在学习时以几根良品的波形平均值作为基准波形。
-	public int stopAfterLearn; //学习后停机
+	public bool stopAfterLearn; //学习后停机
 	public tagTpAdj touch  ;
     [System.Runtime.InteropServices.MarshalAsAttribute(System.Runtime.InteropServices.UnmanagedType.ByValArray, SizeConst = 48, ArraySubType = System.Runtime.InteropServices.UnmanagedType.Struct)]
     public tagTolItem[] tol ;
@@ -191,14 +188,15 @@ public struct tagCFG
             strFileName = GetCfgFileName();
         else
             SetCfgFileName(strFileName);
-
         System.IO.StreamWriter f2 = new System.IO.StreamWriter(strFileName, true, System.Text.Encoding.UTF8);
         f2.Write("RUN ", "DEV_CFG_FILE ", strFileName);
         f2.Close();
         f2.Dispose();
         //FileStream pFile; 
     }
-    public int CFG_Check = 0;
+    public bool CFG_Check() {
+        return false;
+    }
     public tagCFG Get() {
         return this.m_deviceCfg;
     }
@@ -206,9 +204,6 @@ public struct tagCFG
     {
         this.m_deviceCfg = cfg;
     }
-    public tagCFG SetDefaultCfg = new tagCFG();        //默认配置
-    public tagCFG m_deviceCfg = new tagCFG();          //当前配置
-    public string m_strCfgFileName;                    //当前使用的配置文件名称
 
     public string PeakCvt(float val, int ch,ref float pPeakCvt)
     {
@@ -257,8 +252,11 @@ public struct tagCFG
             ret = defVal;
         return ret;
     }
-} 
 
+    public tagCFG SetDefaultCfg = new tagCFG();        //默认配置
+    public tagCFG m_deviceCfg = new tagCFG();          //当前配置
+    public string m_strCfgFileName;                    //当前使用的配置文件名称
+} 
 /*********************************************************************************************************
 	检验参数有效性。如果参数无效，设为默认参数
 */
