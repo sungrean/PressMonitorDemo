@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO.Ports;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
@@ -57,7 +58,6 @@ public enum tagAlmJudge
 //	PRO_CMD_MODEL_SEL, //20190618 选择基准波形
 //}
 
-
 public class tagPM_chState
 {
 	public tagMode mode = new tagMode(); //模式
@@ -67,6 +67,27 @@ public class tagPM_chState
 	public int bad; //实际不良数
 	public tagSensorState sensor = new tagSensorState(); //传感器接入状态
 }
+
+//通用串口Tx数据帧结构体
+[StructLayout(LayoutKind.Sequential, Pack = 1)] //Pack =4保持与STM32内存结构一致
+public struct COMM_TX_GEN_T
+{
+    public char frameHeader;
+    public char rsvU8;  //保留，占位，保证与下位机数据结构一致
+    public UInt16 len;
+    public UInt16 type;
+    public byte sum;
+    public char frameTail;
+};
+//通用串口Tx数据帧结构体
+[StructLayout(LayoutKind.Sequential, Pack = 1)] //Pack =4保持与STM32内存结构一致
+public struct COMM_TX_GEN_HEADER_T
+{
+    public char frameHeader;
+    public char rsvU8;  //保留，占位，保证与下位机数据结构一致
+    public UInt16 len;
+    public UInt16 type;
+};
 //串口Rx Tx数据帧结构体
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct COMM_FRAME_T
@@ -89,22 +110,22 @@ public class CProtocol
 		this.m_RcbBufCnt = 0;
 		int i; 
 		m_hParent = hParent; //接收消息的父窗体 
-        for (i = 0; i < m_cmd.Length; i++) //20180902
-		{
-			m_cmd[i][ 1] = (char)DefineConstants.DEFAULT_PRO_CMD_LEN; //default length
-			m_cmd[i][ 2] = (char)0;
+  //      for (i = 0; i < m_cmd.Length; i++) //20180902
+		//{
+		//	m_cmd[i][ 1] = (char)DefineConstants.DEFAULT_PRO_CMD_LEN; //default length
+		//	m_cmd[i][ 2] = (char)0;
              
-			int j;
-			byte sum;
-			for (sum = 0, j = 0; j < 5; j++)
-			{
-				sum +=(byte) m_cmd[i][ j];
-			}
-			m_cmd[i][ 5] = (char)sum; 
-			m_cmd[i][ 5] = (char)DefineConstants.DEFAULT_SUM; 
-		}
-		m_cmd[(int)tagProCmd.PRO_CMD_SWITtagMode][ 1] = (char)DefineConstants.FRM_LEN_SM;
-		m_cmd[(int)tagProCmd.PRO_CMD_RST_ALM][ 1] = (char)DefineConstants.FRM_LEN_RA;
+		//	int j;
+		//	byte sum;
+		//	for (sum = 0, j = 0; j < 5; j++)
+		//	{
+		//		sum +=(byte) m_cmd[i][ j];
+		//	}
+		//	m_cmd[i][ 5] = (char)sum; 
+		//	m_cmd[i][ 5] = (char)DefineConstants.DEFAULT_SUM; 
+		//}
+		//m_cmd[(int)tagProCmd.PRO_CMD_SWITtagMode][ 1] = (char)DefineConstants.FRM_LEN_SM;
+		//m_cmd[(int)tagProCmd.PRO_CMD_RST_ALM][ 1] = (char)DefineConstants.FRM_LEN_RA;
          
         m_rec[0].m_model = new tagRecItem(); 
 
@@ -165,70 +186,79 @@ public class CProtocol
 	}
 
 	/////////////////////////////////////////////////////////////////////////////
-	public void SwitchMode(tagMode mode)
+	public byte[] SwitchMode(tagMode mode)
 	{
-		string cmd = new string(new char[DefineConstants.FRM_LEN_SM]);
-        //C++ TO C//# CONVERTER CRACKED BY X-CRACKER 2017 TODO TASK: The memory management function ' Array.Copy' has no equivalent in C//#:
-        char[] cmds = new char[DefineConstants.FRM_LEN_SM];
-         Array.Copy( m_cmd[2],cmds, DefineConstants.FRM_LEN_SM);
-        cmd = new string(cmds);     //;
-		cmd = StringFunctions.ChangeCharacter(cmd, 5, (char)mode); 
-        if (DefineConstants.CHECKSUM_EN)
-        {
-		    int j;
-		    byte sum=0;
-		    for (sum = 0, j = 0; j < 6; j++)
-		    {
-			    sum += (byte)cmd[j];
-		    }
-		    cmd = StringFunctions.ChangeCharacter(cmd, 6, (char)sum);
-        }
-        else
-        {
-            cmd = StringFunctions.ChangeCharacter(cmd, 6, (char)DefineConstants.DEFAULT_SUM);
-        } 
-		//m_comm.Purge();
-		m_RcbBufCnt = 0;
-        m_comm.Write(cmd); 
-	}
+        byte[] data = new byte[2];  
+        data[1] = (byte)(((int)mode >> 8) & 0xFF);          //zhi
+        data[0] = (byte)((int)mode & 0xFF); 
+        byte[] txBuf = GetCmdFrm(FRAME_TYPE_SM,data, 2);
+        return txBuf;
+    }
+    public byte[] GetCmdFrm(ushort type)
+    {
+        COMM_TX_GEN_T frm = new COMM_TX_GEN_T();
+        frm.frameHeader = FRM_HEADER;
+        frm.len = DEF_FRM_LEN;
+        frm.type = type;
+        frm.sum = DEF_CHECKSUM;
+        frm.frameTail = FRM_TAIL;
+        byte[] txBuf = StructToBytes(frm);
+        return txBuf;
+    }
+    //Cmd frame with data
+    public byte[] GetCmdFrm(ushort type, byte[] data, UInt16 len)
+    {
+        COMM_TX_GEN_HEADER_T frm = new COMM_TX_GEN_HEADER_T();
+        frm.frameHeader = FRM_HEADER;
+        frm.len = (UInt16)(DEF_FRM_LEN + len);
+        frm.type = type;
+        byte[] header = StructToBytes(frm);
 
-	/////////////////////////////////////////////////////////////////////////////
-	public string GetCfg()
-	{
-        return new string(m_cmd[(int)tagProCmd.PRO_CMD_GET_CFG]) ;
+        byte[] tail = { DEF_CHECKSUM, (byte)FRM_TAIL };
+        byte[] txBuf = header.Concat(data).ToArray();
+        txBuf = txBuf.Concat(tail).ToArray();
+        //txBuf.Concat(tail);
+        return txBuf;
+    }
+
+    /////////////////////////////////////////////////////////////////////////////
+    public byte[] GetCfg()
+	{ 
+        return  GetCmdFrm(FRAME_TYPE_GC);       
+        //return new string(m_cmd[(int)tagProCmd.PRO_CMD_GET_CFG]) ;
         //m_comm.Write(ref m_cmd[(int)tagProCmd.PRO_CMD_GET_CFG], DefineConstants.DEFAULT_PRO_CMD_LEN);
     }
 	/////////////////////////////////////////////////////////////////////////////
 	public void SetCfg(tagCFG cfg)            //重新写一遍就好了
     {
-        if (cfg.valid != DefineConstants.CFG_VALID)
-            return;
-        char[] cmd=new char[DefineConstants.FRM_LEN_SC];
-        Array.Copy( m_cmd[(int)tagProCmd.PRO_CMD_SET_CFG], cmd,DefineConstants.DEFAULT_PRO_CMD_LEN);
-        cmd[1] = (char)DefineConstants.FRM_LEN_SC;
-        byte[] stctArr = StructToBytes(cfg);
-       // Array.Copy(cmd[5],StructToBytes(cfg), Marshal.SizeOf(new tagCFG()));
-        for(int i=0;i< Marshal.SizeOf(new tagCFG());i++)
-        {
-            cmd[i + 5] =(char)stctArr[i];
-        }
-        if(DefineConstants.CHECKSUM_EN)     //校验和
-        {
-            int j;
-             char sum;
-            for (sum = (char)0, j = 0; j < DefineConstants.FRM_LEN_SC - 2; j++)
-            {
-                sum += cmd[j]; 
-            }
-            cmd[DefineConstants.FRM_LEN_SC - 2] = sum;
-        }
-        else
-        {
-            cmd[DefineConstants.FRM_LEN_SC - 2] = (char)DefineConstants.DEFAULT_SUM;  
-        } 
-        cmd[DefineConstants.FRM_LEN_SC - 1] = DefineConstants.FRM_TAIL;
-        string s = new string(cmd);
-        m_comm.Write(s);
+       // if (cfg.valid != DefineConstants.CFG_VALID)
+       //     return;
+       // char[] cmd=new char[DefineConstants.FRM_LEN_SC];
+       // Array.Copy( m_cmd[(int)tagProCmd.PRO_CMD_SET_CFG], cmd,DefineConstants.DEFAULT_PRO_CMD_LEN);
+       // cmd[1] = (char)DefineConstants.FRM_LEN_SC;
+       // byte[] stctArr = StructToBytes(cfg);
+       //// Array.Copy(cmd[5],StructToBytes(cfg), Marshal.SizeOf(new tagCFG()));
+       // for(int i=0;i< Marshal.SizeOf(new tagCFG());i++)
+       // {
+       //     cmd[i + 5] =(char)stctArr[i];
+       // }
+       // if(DefineConstants.CHECKSUM_EN)     //校验和
+       // {
+       //     int j;
+       //      char sum;
+       //     for (sum = (char)0, j = 0; j < DefineConstants.FRM_LEN_SC - 2; j++)
+       //     {
+       //         sum += cmd[j]; 
+       //     }
+       //     cmd[DefineConstants.FRM_LEN_SC - 2] = sum;
+       // }
+       // else
+       // {
+       //     cmd[DefineConstants.FRM_LEN_SC - 2] = (char)DefineConstants.DEFAULT_SUM;  
+       // } 
+       // cmd[DefineConstants.FRM_LEN_SC - 1] = DefineConstants.FRM_TAIL;
+       // string s = new string(cmd);
+       // m_comm.Write(s);
     }
 
 	///////////////////////////////////////////////////////////////////////////////
@@ -259,18 +289,18 @@ public class CProtocol
 	//almJudge  = ALM_GOOD ALM_BAD
 	public void ResetAlarm(tagAlmJudge almJudge)
 	{
-		string cmd = new string(new char[DefineConstants.FRM_LEN_SM]); 
-		 Array.Copy(cmd.ToCharArray(), m_cmd[(int)tagProCmd.PRO_CMD_RST_ALM], DefineConstants.FRM_LEN_RA);
-		cmd = StringFunctions.ChangeCharacter(cmd, 5,(char) almJudge);
+		//string cmd = new string(new char[DefineConstants.FRM_LEN_SM]); 
+		// Array.Copy(cmd.ToCharArray(), m_cmd[(int)tagProCmd.PRO_CMD_RST_ALM], DefineConstants.FRM_LEN_RA);
+		//cmd = StringFunctions.ChangeCharacter(cmd, 5,(char) almJudge);
          
-		int j;
-		byte sum;
-		for (sum = 0, j = 0; j < 6; j++)
-		{
-			sum += (byte)cmd[j];
-		}
-		cmd = StringFunctions.ChangeCharacter(cmd, 6, (char)sum); 
-		cmd = StringFunctions.ChangeCharacter(cmd, 6, (char)DefineConstants.DEFAULT_SUM); 
+		//int j;
+		//byte sum;
+		//for (sum = 0, j = 0; j < 6; j++)
+		//{
+		//	sum += (byte)cmd[j];
+		//}
+		//cmd = StringFunctions.ChangeCharacter(cmd, 6, (char)sum); 
+		//cmd = StringFunctions.ChangeCharacter(cmd, 6, (char)DefineConstants.DEFAULT_SUM); 
 	}
 
 	/////////////////////////////////////////////////////////////////////////////
