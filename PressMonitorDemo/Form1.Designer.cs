@@ -63,6 +63,7 @@
             this.btnClearnCount.TabIndex = 3;
             this.btnClearnCount.Text = "清除计数器";
             this.btnClearnCount.UseVisualStyleBackColor = true;
+            this.btnClearnCount.Click += new System.EventHandler(this.btnClearnCount_Click);
             // 
             // btnChoseModel
             // 

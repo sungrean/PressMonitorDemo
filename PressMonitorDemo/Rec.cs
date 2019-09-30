@@ -33,7 +33,8 @@ public class tagRtcTimeType
 /** 
   * @brief  RTC Date structure definition  
   */
-public class tagRtcDateType
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct tagRtcDateType
 {
   public byte RTC_WeekDay; /*!< Specifies the RTC Date WeekDay.
                         This parameter can be a value of @ref RTC_WeekDay_Definitions */
@@ -49,10 +50,11 @@ public class tagRtcDateType
 }
 
 //时间/日期结构体
-public class tagRTC_DateTimeTypeDef
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct tagRTC_DateTimeTypeDef
 {
-	public tagRtcDateType date = new tagRtcDateType();
-	public tagRtcTimeType time = new tagRtcTimeType();
+	public tagRtcDateType date;// = new tagRtcDateType();
+	public tagRtcTimeType time;//  = new tagRtcTimeType();
 }
 
 //报警类型定义
@@ -74,6 +76,7 @@ public enum tagJudgeType
 }
 
 //记录项目结构体定义，描述记录中的一个波形，基准波形或被测波形
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct  tagRecItem
 {
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = DefineConstants.WAVE_LEN)]
@@ -91,9 +94,7 @@ public struct  tagRecItem
 	public float load; //Load settings in configuration, to comvert peakVal to Kg
 	public ushort peakVal; //压力的峰值(AD值，在使用前跟据需要转换单位) ANAL_Align()
 	public ushort sampTime; //采样窗口宽度
-
 	public int tolIdx; //公差组序号                        ANAL_IsAlm()
-
 	public float areaMax; //面积判定结果(＋公差/－公差/DATA)    ANAL_IsAlm()
 	public float areaMin;
 	public float areaErr;
@@ -110,9 +111,7 @@ public struct  tagRecItem
 	public int almShift;
 	public int almSC;
 	public int isAlm;
-
 	public ushort triggerThresh; //触发阈值 本通道 model记录的触发阈值为自动触发模式的触发阈值        ANAL_FirstLearnAutoMode()
-
 	//以下参数是分析波形时会用到
 	public int peakIdx; //峰值点位置        ANAL_Align()
 	public int alignIdx; //对齐点位置        ANAL_Align()    20170611
@@ -138,6 +137,7 @@ public struct  tagRecItem
 	//记录有效性标识
 	public uint valid; //记录有效性标识
 }
+
 
 //记录结构体定义，描述一条完整的记录
 public struct tagRec
