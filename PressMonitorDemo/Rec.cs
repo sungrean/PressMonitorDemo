@@ -13,7 +13,8 @@ using System.Runtime.InteropServices;
 /** 
   * @brief  RTC Time structure definition  
   */
-public class tagRtcTimeType
+[StructLayout(LayoutKind.Sequential, Pack = 1)] //Pack =4保持与STM32内存结构一致
+public struct tagRtcTimeType
 {
   public byte RTC_Hours; /*!< Specifies the RTC Time Hour.
                         This parameter must be set to a value in the 0-12 range
@@ -33,7 +34,7 @@ public class tagRtcTimeType
 /** 
   * @brief  RTC Date structure definition  
   */
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
+[StructLayout(LayoutKind.Sequential, Pack = 1)] //Pack =4保持与STM32内存结构一致
 public struct tagRtcDateType
 {
   public byte RTC_WeekDay; /*!< Specifies the RTC Date WeekDay.
@@ -50,11 +51,10 @@ public struct tagRtcDateType
 }
 
 //时间/日期结构体
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct tagRTC_DateTimeTypeDef
 {
-	public tagRtcDateType date;// = new tagRtcDateType();
-	public tagRtcTimeType time;//  = new tagRtcTimeType();
+	public tagRtcDateType date ;
+	public tagRtcTimeType time  ;
 }
 
 //报警类型定义
@@ -76,7 +76,7 @@ public enum tagJudgeType
 }
 
 //记录项目结构体定义，描述记录中的一个波形，基准波形或被测波形
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
+[StructLayout(LayoutKind.Sequential, Pack = 1)] //Pack =4保持与STM32内存结构一致
 public struct  tagRecItem
 {
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = DefineConstants.WAVE_LEN)]
@@ -112,6 +112,7 @@ public struct  tagRecItem
 	public int almSC;
 	public int isAlm;
 	public ushort triggerThresh; //触发阈值 本通道 model记录的触发阈值为自动触发模式的触发阈值        ANAL_FirstLearnAutoMode()
+
 	//以下参数是分析波形时会用到
 	public int peakIdx; //峰值点位置        ANAL_Align()
 	public int alignIdx; //对齐点位置        ANAL_Align()    20170611
@@ -138,11 +139,11 @@ public struct  tagRecItem
 	public uint valid; //记录有效性标识
 }
 
-
 //记录结构体定义，描述一条完整的记录
-public struct tagRec
+[StructLayout(LayoutKind.Sequential, Pack = 1)] //Pack =4保持与STM32内存结构一致
+public struct tagRec        //1532--->1536(实际)
 {
-	public tagRecItem m_model;
+	public tagRecItem m_model;  //766---->768(实际)
 	public tagRecItem m_wave;
 }
 

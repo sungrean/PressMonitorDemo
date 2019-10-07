@@ -39,24 +39,24 @@ public enum tagAlmJudge
 }
 
 ////串口指令定义
-//public enum tagProCmd
-//{
-//	PRO_CMD_LOG_IN = 0,
-//	PRO_CMD_LOG_OFF,
-//	PRO_CMD_SWITtagMode,
-//	PRO_CMD_GET_CFG,
-//	PRO_CMD_SET_CFG,
-//	PRO_CMD_GET_REC,
-//	PRO_CMD_CLR_REC,
-//	PRO_CMD_GET_STATE,
-//	PRO_CMD_RST_ALM,
-//	PRO_CMD_REPORT,
-//	PRO_CMD_ALARM,
-//	PRO_CMD_BUSY,
-//	PRO_CMD_RESET_CNT, //20180902    //清除计数器
-//	PRO_CMD_SYNC_TIME, //20180902    //同步系统时间
-//	PRO_CMD_MODEL_SEL, //20190618 选择基准波形
-//}
+public enum tagProCmd
+{
+    PRO_CMD_LOG_IN = 0,
+    PRO_CMD_LOG_OFF,
+    PRO_CMD_SWITtagMode,
+    PRO_CMD_GET_CFG,
+    PRO_CMD_SET_CFG,
+    PRO_CMD_GET_REC,
+    PRO_CMD_CLR_REC,
+    PRO_CMD_GET_STATE,
+    PRO_CMD_RST_ALM,
+    PRO_CMD_REPORT,
+    PRO_CMD_ALARM,
+    PRO_CMD_BUSY,
+    PRO_CMD_RESET_CNT, //20180902    //清除计数器
+    PRO_CMD_SYNC_TIME, //20180902    //同步系统时间
+    PRO_CMD_MODEL_SEL, //20190618 选择基准波形
+}
 
 public class tagPM_chState
 {
@@ -72,36 +72,59 @@ public class tagPM_chState
 [StructLayout(LayoutKind.Sequential, Pack = 1)] //Pack =4保持与STM32内存结构一致
 public struct COMM_TX_GEN_T
 {
-    public byte frameHeader;
-   // public byte rsvU8;  //保留，占位，保证与下位机数据结构一致
+    public char frameHeader;
+    public char rsvU8;  //保留，占位，保证与下位机数据结构一致
     public UInt16 len;
     public UInt16 type;
     public byte sum;
-    public byte frameTail;
+    public char frameTail;
 };
 //通用串口Tx数据帧结构体
 [StructLayout(LayoutKind.Sequential, Pack = 1)] //Pack =4保持与STM32内存结构一致
 public struct COMM_TX_GEN_HEADER_T
 {
-    public byte frameHeader;        //帧头一字节
-    //public byte rsvU8;  //保留，占位，保证与下位机数据结构一致
+    public char frameHeader;
+    public char rsvU8;  //保留，占位，保证与下位机数据结构一致
     public UInt16 len;
     public UInt16 type;
 };
 //串口Rx Tx数据帧结构体
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct COMM_FRAME_T
+public struct COMM_FRAME_RPT              //总长度1543
 {
-    public byte frameHeader;
-    //public byte rsvu8_1;		//占位，用于调整字节对齐
+    public char frameHeader;
+   // public char rsvu8_1;		//占位，用于调整字节对齐
     public UInt16 len;
     public UInt16 type;
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1536)]
     public byte[] data; //
     public byte sum;
-    public byte frameTail;
+    public char frameTail;
 };
-
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct COMM_FRAME_NODATA              // 两个数据位
+{
+    public char frameHeader;
+    // public char rsvu8_1;		//占位，用于调整字节对齐
+    public UInt16 len;
+    public UInt16 type;
+    //[MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)]
+    //public byte[] data; //
+    public byte sum;
+    public char frameTail;
+};
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct COMM_FRAME_T              // 两个数据位
+{
+    public char frameHeader;
+    // public char rsvu8_1;		//占位，用于调整字节对齐
+    public UInt16 len;
+    public UInt16 type;
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)]
+    public byte[] data; //
+    public byte sum;
+    public char frameTail;
+};
 public class CProtocol 
 {
     public CProtocol(demo hParent)
@@ -137,11 +160,10 @@ public class CProtocol
     {
         int i;
         bool ret = true;
-        COMM_FRAME_T frame = new COMM_FRAME_T();
+        object frame = new object();
 
         if (len + rxCnt >= RX_BUFF_SIZE)
             return false;
-
         //添加新收到的数据到末端
         for (i = 0; i < len; i++)
             buffRX[i + rxCnt] = rx[i];
@@ -153,10 +175,9 @@ public class CProtocol
         return ret;
     }
 
-    public bool GetRxFrame(ref COMM_FRAME_T frame)
+    public bool GetRxFrame(ref object frame)      //处理一帧数据
     {
         bool ret = false;
-
         if (queueRX.Count >= 1)
         {
             frame = queueRX.Dequeue();
@@ -164,33 +185,57 @@ public class CProtocol
         }
         return ret;
     }
+    public ushort GetRxType()       
+    {
+        ushort ret = 0;
+        if (RXType.Count >= 1)
+        {
+            ret = RXType.Dequeue(); 
+        }
+        return ret;
+    }
 
-    public byte[] frame = new byte[DefineConstants.MAX_CMD_LEN];
-    public const byte FRM_HEADER = (byte)'[';
-    public const byte FRM_TAIL = (byte)']';
-    public const byte DEF_CHECKSUM = 0x55; //default frm checksum
-    public Queue<COMM_FRAME_T> queueRX = new Queue<COMM_FRAME_T>(); 
-//	public SerialPort m_comm = new SerialPort();
+
+    byte[] frame = new byte[DefineConstants.MAX_CMD_LEN];
+    const char FRM_HEADER = '[';
+    const char FRM_TAIL = ']';
+    const byte DEF_CHECKSUM = 0x55; //default frm checksum
+    Queue<object> queueRX = new Queue<object>();    //因为要保存 不同长度的帧所以用object存
+    Queue<UInt16> RXType = new Queue<UInt16>();     //每次保存的帧类型
+    public SerialPort m_comm = new SerialPort();
 
 
-	
-	//public void LogIn()
-	//{  
-	//		m_RcbBufCnt = 0;
-	//		SwitchMode(tagMode.STOP); 
-	//}
+	/////////////////////////////////////////////////////////////////////////////
+	public void LogIn()
+	{ 
+			if (false == m_comm.IsOpen)
+			{
+				string port = new string(new char[100]); 
+                m_comm.Open(); 
+			}
+			if (DefineConstants.FALSE == rxThreadRunning)
+			{
+				uint threadId;
+				//m_hRcv = CreateThread(0, 0, (LPTHREAD_START_ROUTINE) & rxThread, this, (uint) null, threadId);
+                //开启接收线程
+			}
+			m_RcbBufCnt = 0;
 
-	
+			SwitchMode(tagMode.STOP); 
+	}
+
+	/////////////////////////////////////////////////////////////////////////////
 	public void LogOff()
 	{ 
 	}
 
-	
+	/////////////////////////////////////////////////////////////////////////////
 	public byte[] SwitchMode(tagMode mode)
 	{
-        byte[] data = new byte[1];   
-        data[0] = (byte)((int)mode); 
-        byte[] txBuf = GetCmdFrm(FRAME_TYPE_SM,data, 1);
+        byte[] data = new byte[2];  
+        data[1] = (byte)(((int)mode >> 8) & 0xFF);          //zhi
+        data[0] = (byte)((int)mode & 0xFF); 
+        byte[] txBuf = GetCmdFrm(FRAME_TYPE_SM,data, 2);
         return txBuf;
     }
     public byte[] GetCmdFrm(ushort type)
@@ -205,13 +250,6 @@ public class CProtocol
         return txBuf;
     }
     //Cmd frame with data
-    /// <summary>
-    /// 获取带数据的命令帧
-    /// </summary>
-    /// <param name="type">命令</param>
-    /// <param name="data">数据</param>
-    /// <param name="len">数据长度</param>
-    /// <returns></returns>
     public byte[] GetCmdFrm(ushort type, byte[] data, UInt16 len)
     {
         COMM_TX_GEN_HEADER_T frm = new COMM_TX_GEN_HEADER_T();
@@ -225,72 +263,99 @@ public class CProtocol
         txBuf = txBuf.Concat(tail).ToArray();
         //txBuf.Concat(tail);
         return txBuf;
-    } 
-    
+    }
+
+    /////////////////////////////////////////////////////////////////////////////
     public byte[] GetCfg()
 	{ 
-        return  GetCmdFrm(FRAME_TYPE_GC);        
+        return  GetCmdFrm(FRAME_TYPE_GC);       
+        //return new string(m_cmd[(int)tagProCmd.PRO_CMD_GET_CFG]) ;
+        //m_comm.Write(ref m_cmd[(int)tagProCmd.PRO_CMD_GET_CFG], DefineConstants.DEFAULT_PRO_CMD_LEN);
     }
-	
-	public byte[] SetCfg(tagCFG cfg)            //重新写一遍就好了
+	/////////////////////////////////////////////////////////////////////////////
+	public void SetCfg(tagCFG cfg)            //重新写一遍就好了
     {
-        byte[] data = StructToBytes(cfg);
-        return GetCmdFrm(FRAME_TYPE_SC, data, (ushort)data.Length);
+       // if (cfg.valid != DefineConstants.CFG_VALID)
+       //     return;
+       // char[] cmd=new char[DefineConstants.FRM_LEN_SC];
+       // Array.Copy( m_cmd[(int)tagProCmd.PRO_CMD_SET_CFG], cmd,DefineConstants.DEFAULT_PRO_CMD_LEN);
+       // cmd[1] = (char)DefineConstants.FRM_LEN_SC;
+       // byte[] stctArr = StructToBytes(cfg);
+       //// Array.Copy(cmd[5],StructToBytes(cfg), Marshal.SizeOf(new tagCFG()));
+       // for(int i=0;i< Marshal.SizeOf(new tagCFG());i++)
+       // {
+       //     cmd[i + 5] =(char)stctArr[i];
+       // }
+       // if(DefineConstants.CHECKSUM_EN)     //校验和
+       // {
+       //     int j;
+       //      char sum;
+       //     for (sum = (char)0, j = 0; j < DefineConstants.FRM_LEN_SC - 2; j++)
+       //     {
+       //         sum += cmd[j]; 
+       //     }
+       //     cmd[DefineConstants.FRM_LEN_SC - 2] = sum;
+       // }
+       // else
+       // {
+       //     cmd[DefineConstants.FRM_LEN_SC - 2] = (char)DefineConstants.DEFAULT_SUM;  
+       // } 
+       // cmd[DefineConstants.FRM_LEN_SC - 1] = DefineConstants.FRM_TAIL;
+       // string s = new string(cmd);
+       // m_comm.Write(s);
     }
-     
-	/// <summary>
-    /// 读取报警记录
-    /// </summary>
-    /// <returns></returns>
-	public byte[] GetRecord()
+
+	///////////////////////////////////////////////////////////////////////////////
+	//void CProtocol::SetConfig(tagCFG * pCfg)
+	//{
+	//}
+
+	/////////////////////////////////////////////////////////////////////////////
+	public void GetRecord()
 	{
-        return GetCmdFrm(FRAME_TYPE_GR);
+		//m_comm.Write(ref m_cmd[(int)tagProCmd.PRO_CMD_GET_REC], DefineConstants.DEFAULT_PRO_CMD_LEN);
 	}
 
-    /// <summary>
-    ///清除报警记录
-    /// </summary>
-    /// <returns></returns>
-    public byte[] ClearRecord()
+	/////////////////////////////////////////////////////////////////////////////
+	public void ClearRecord()
 	{
-        return GetCmdFrm(FRAME_TYPE_CR);
+		//m_comm.Write(ref m_cmd[(int)tagProCmd.PRO_CMD_CLR_REC], DefineConstants.DEFAULT_PRO_CMD_LEN);
 	}
-    /// <summary>
-    /// 获取设备状态
-    /// </summary>
-    /// <returns></returns>
-    public byte[] GetState()
+
+	/////////////////////////////////////////////////////////////////////////////
+	public void GetState()
 	{
-        return GetCmdFrm(FRAME_TYPE_GS);
 		//m_comm.Write(ref m_cmd[(int)tagProCmd.PRO_CMD_GET_STATE], DefineConstants.DEFAULT_PRO_CMD_LEN);
 	}
-    //报警记录状态
-    //almJudge  = ALM_GOOD ALM_BAD
-    /// <summary>
-    /// 良品判定
-    /// </summary>
-    /// <param name="almJudge"></param>
-    /// <returns></returns>
-    public byte[] ResetAlarm(tagAlmJudge almJudge)
+
+	/////////////////////////////////////////////////////////////////////////////
+	//报警记录状态
+	//almJudge  = ALM_GOOD ALM_BAD
+	public void ResetAlarm(tagAlmJudge almJudge)
 	{
-        byte[] data = {(byte)almJudge };
-        return GetCmdFrm(FRAME_TYPE_RA, data, (ushort)data.Length); 
+		//string cmd = new string(new char[DefineConstants.FRM_LEN_SM]); 
+		// Array.Copy(cmd.ToCharArray(), m_cmd[(int)tagProCmd.PRO_CMD_RST_ALM], DefineConstants.FRM_LEN_RA);
+		//cmd = StringFunctions.ChangeCharacter(cmd, 5,(char) almJudge);
+         
+		//int j;
+		//byte sum;
+		//for (sum = 0, j = 0; j < 6; j++)
+		//{
+		//	sum += (byte)cmd[j];
+		//}
+		//cmd = StringFunctions.ChangeCharacter(cmd, 6, (char)sum); 
+		//cmd = StringFunctions.ChangeCharacter(cmd, 6, (char)DefineConstants.DEFAULT_SUM); 
 	}
 
-
-    //20180902 清除计数器
-    public byte[] ResetCounters()
-	{
-        return GetCmdFrm(FRAME_TYPE_RC);
+	/////////////////////////////////////////////////////////////////////////////
+	//20180902 清除计数器
+	public void ResetCounters()
+	{ 
 	}
-	
+	/////////////////////////////////////////////////////////////////////////////
 	//20180902 同步系数时间 
-	public tagRTC_DateTimeTypeDef SyncSysTime_rtc = new tagRTC_DateTimeTypeDef();
-    /// <summary>
-    /// 同步系统时间
-    /// </summary>
-    /// <returns></returns>
-    public byte[] SyncSysTime()
+	private tagRTC_DateTimeTypeDef SyncSysTime_rtc = new tagRTC_DateTimeTypeDef();
+	public void SyncSysTime()
 	{ 
         DateTime t=DateTime.Now;
 
@@ -306,195 +371,194 @@ public class CProtocol
 		SyncSysTime_rtc.time.RTC_H12 = (byte)(t.Hour % 12);
 		SyncSysTime_rtc.time.RTC_Minutes = (byte)(t.Minute);
 		SyncSysTime_rtc.time.RTC_Seconds = (byte)(t.Second);
-        byte[] data = StructToBytes(SyncSysTime_rtc);
-        return GetCmdFrm(FRAME_TYPE_ST, data, (ushort)data.Length);
 
+		string cmd = new string(new char[(DefineConstants.DEFAULT_PRO_CMD_LEN + Marshal.SizeOf(new tagRTC_DateTimeTypeDef()))]); 
 	}
-	
+	/////////////////////////////////////////////////////////////////////////////
 	//20190618 选择基准波形
-	public void ModelSelect(int ch, int idx)//暂时用的功能
+	public void ModelSelect(int ch, int idx)
 	{ 
          
 	}
 
-    //终止接收进程
-    //public void ExitRxThread()
-    //{
-    //	if (DefineConstants.FALSE == rxThreadRunning)
-    //	{
-    //		return; //20171121 如果串口打开失败，不需要等待线程结束
-    //	} 
-    //}
+	//终止接收进程
+	public void ExitRxThread()
+	{
+		if (DefineConstants.FALSE == rxThreadRunning)
+		{
+			return; //20171121 如果串口打开失败，不需要等待线程结束
+		} 
+	}
+     
+	private int m_recCnt;           //记录当前收到的记录
+	private int rxThreadRunning;
 
-    public int m_recCnt;           //记录当前收到的记录
-    public int rxThreadRunning;
-
-    //public static char[][] m_cmd= { "[  LI ]".ToCharArray(), "[  LO ]".ToCharArray(), "[  SMm ]".ToCharArray(), "[  GC ]".ToCharArray(),
+    //private static char[][] m_cmd= { "[  LI ]".ToCharArray(), "[  LO ]".ToCharArray(), "[  SMm ]".ToCharArray(), "[  GC ]".ToCharArray(),
     //    "[  SC ]".ToCharArray(), "[  GR ]".ToCharArray(), "[  CR ]".ToCharArray(), "[  GS ]".ToCharArray(), "[  RAa ]".ToCharArray(),
     //    "[  RC ]".ToCharArray(), "[  ST ]".ToCharArray(), "[  MS   ]".ToCharArray()   };
 
     #region 接收到的各种消息对应的处理函数
-    //    /*********************************************************************************************************
-    //		Function: Deal frame from Device
-    //	*/
-    //    public void cmdSM(byte[] buf)
-    //	{
-    //        tagMode mode = (tagMode)buf[5];
-    //		if ((tagMode.STOP == mode) || (tagMode.WORK == mode) || (tagMode.LEARN == mode))
-    //		{
-    //			//global::PostMessageA(m_hParent, WM_USER + 503, 0, mode);
-    //		}
-    //		switch (mode)
-    //		{
-    //		case tagMode.WORK:
-    //			//SetEvent(m_hWorkEvent);
-    //			break;
-    //		case tagMode.LEARN:
-    //			//SetEvent(m_hLearnEvent);
-    //			break;
-    //		case tagMode.STOP:
-    //			//SetEvent(m_hStopEvent);
-    //			break;
-    //		default:
-    //			break; 
-    //		}
-    //	}
-    //	/*********************************************************************************************************
-    //		Function: Deal frame from Device
-    //	*/
-    //	public void cmdGC(byte[] buf)              //获取到配置信息
-    //	{
-    //		ushort len = (ushort)(buf[1]);
-    //		if ((DefineConstants.DEFAULT_PRO_CMD_LEN + Marshal.SizeOf(new tagCFG())) == len)
-    //		{
-    //            //C++ TO C//# CONVERTER CRACKED BY X-CRACKER 2017 TODO TASK: The memory management function ' Array.Copy' has no equivalent in C//#:
-    //            byte[] dstArray = new byte[Marshal.SizeOf(new tagCFG())];
-    //            Buffer.BlockCopy(buf, 5, dstArray, 0, dstArray.Length);
-    //             tagCFG temp =new tagCFG() ;
-    //            BytesToStruct(dstArray, dstArray.Length, temp);
-    //           //  Array.Copy(gCCfg.Get(), buf[5], Marshal.SizeOf(new new tagCFG()()));
-    //			//gCCfg.SaveCfgFile("");
-    //			//global::PostMessageA(m_hParent, WM_USER + 504, (System.IntPtr)gCCfg.Get(), 0);
-    //		}
-    //	}
-    //	/*********************************************************************************************************
-    //		Function: Deal frame from Device
-    //	*/
-    //	public void cmdGR(byte[] buf)              //读取报警记录
-    //	{
-    //		ushort len = (ushort)(buf[1]);
-    //		if ((DefineConstants.DEFAULT_PRO_CMD_LEN + Marshal.SizeOf(new tagRec())) == len)
-    //		{
-    //            byte[] dstArray = new byte[Marshal.SizeOf(new tagRec())];
-    //            Buffer.BlockCopy(buf, 5, dstArray, 0, dstArray.Length);
-    //            tagRec p = new tagRec();
-    //            BytesToStruct(dstArray, dstArray.Length, p);        //获得对象
-    //            //tagRec p = (tagRec)(buf + 5);
-    //            int ch = p.m_wave.ch;
-    //			if ((ch >= 0) && (ch < DefineConstants.CH_NUM))
-    //			{ 
-    //                m_rec[ch] = p; 
-    //			}
-    //		}
-    //		if (DefineConstants.DEFAULT_PRO_CMD_LEN == len) //记录发送完毕
-    //		{
-    //			//global::PostMessageA(m_hParent, WM_USER + 512, 0, 0);
-    //		}
-    //	}
+//    /*********************************************************************************************************
+//		Function: Deal frame from Device
+//	*/
+//    private void cmdSM(byte[] buf)
+//	{
+//        tagMode mode = (tagMode)buf[5];
+//		if ((tagMode.STOP == mode) || (tagMode.WORK == mode) || (tagMode.LEARN == mode))
+//		{
+//			//global::PostMessageA(m_hParent, WM_USER + 503, 0, mode);
+//		}
+//		switch (mode)
+//		{
+//		case tagMode.WORK:
+//			//SetEvent(m_hWorkEvent);
+//			break;
+//		case tagMode.LEARN:
+//			//SetEvent(m_hLearnEvent);
+//			break;
+//		case tagMode.STOP:
+//			//SetEvent(m_hStopEvent);
+//			break;
+//		default:
+//			break; 
+//		}
+//	}
+//	/*********************************************************************************************************
+//		Function: Deal frame from Device
+//	*/
+//	private void cmdGC(byte[] buf)              //获取到配置信息
+//	{
+//		ushort len = (ushort)(buf[1]);
+//		if ((DefineConstants.DEFAULT_PRO_CMD_LEN + Marshal.SizeOf(new tagCFG())) == len)
+//		{
+//            //C++ TO C//# CONVERTER CRACKED BY X-CRACKER 2017 TODO TASK: The memory management function ' Array.Copy' has no equivalent in C//#:
+//            byte[] dstArray = new byte[Marshal.SizeOf(new tagCFG())];
+//            Buffer.BlockCopy(buf, 5, dstArray, 0, dstArray.Length);
+//             tagCFG temp =new tagCFG() ;
+//            BytesToStruct(dstArray, dstArray.Length, temp);
+//           //  Array.Copy(gCCfg.Get(), buf[5], Marshal.SizeOf(new new tagCFG()()));
+//			//gCCfg.SaveCfgFile("");
+//			//global::PostMessageA(m_hParent, WM_USER + 504, (System.IntPtr)gCCfg.Get(), 0);
+//		}
+//	}
+//	/*********************************************************************************************************
+//		Function: Deal frame from Device
+//	*/
+//	private void cmdGR(byte[] buf)              //读取报警记录
+//	{
+//		ushort len = (ushort)(buf[1]);
+//		if ((DefineConstants.DEFAULT_PRO_CMD_LEN + Marshal.SizeOf(new tagRec())) == len)
+//		{
+//            byte[] dstArray = new byte[Marshal.SizeOf(new tagRec())];
+//            Buffer.BlockCopy(buf, 5, dstArray, 0, dstArray.Length);
+//            tagRec p = new tagRec();
+//            BytesToStruct(dstArray, dstArray.Length, p);        //获得对象
+//            //tagRec p = (tagRec)(buf + 5);
+//            int ch = p.m_wave.ch;
+//			if ((ch >= 0) && (ch < DefineConstants.CH_NUM))
+//			{ 
+//                m_rec[ch] = p; 
+//			}
+//		}
+//		if (DefineConstants.DEFAULT_PRO_CMD_LEN == len) //记录发送完毕
+//		{
+//			//global::PostMessageA(m_hParent, WM_USER + 512, 0, 0);
+//		}
+//	}
 
-    //	/*********************************************************************************************************
-    //		Function: Deal frame from Device 接收到传感器状态
-    //	*/
-    //	public void cmdGS(byte[] buf)
-    //	{ 
-    //        ushort len = (ushort)(buf[1]);
-    //        if ((DefineConstants.DEFAULT_PRO_CMD_LEN + DefineConstants.CH_NUM * Marshal.SizeOf(new tagPM_chState()) + 4) == len)
-    //		{
-    ////C++ TO C//# CONVERTER CRACKED BY X-CRACKER 2017 TODO TASK: The memory management function ' Array.Copy' has no equivalent in C//#:
-    //			// Array.Copy(m_state, buf + 5, Marshal.SizeOf(new tagPM_chState()));
+//	/*********************************************************************************************************
+//		Function: Deal frame from Device 接收到传感器状态
+//	*/
+//	private void cmdGS(byte[] buf)
+//	{ 
+//        ushort len = (ushort)(buf[1]);
+//        if ((DefineConstants.DEFAULT_PRO_CMD_LEN + DefineConstants.CH_NUM * Marshal.SizeOf(new tagPM_chState()) + 4) == len)
+//		{
+////C++ TO C//# CONVERTER CRACKED BY X-CRACKER 2017 TODO TASK: The memory management function ' Array.Copy' has no equivalent in C//#:
+//			// Array.Copy(m_state, buf + 5, Marshal.SizeOf(new tagPM_chState()));
 
-    //            byte[] dstArray = new byte[Marshal.SizeOf(new tagRec())];
-    //            Buffer.BlockCopy(buf, 5, dstArray, 0, dstArray.Length);
-    //            tagPM_chState p = new tagPM_chState();
-    //            BytesToStruct(dstArray, dstArray.Length, p);        //获得对象
-    //                                                                //C++ TO C//# CONVERTER CRACKED BY X-CRACKER 2017 TODO TASK: C//# does not have an equivalent to pointers to value types:
-    //                                                                //ORIGINAL LINE: int *p = (int*)&buf[5+Marshal.SizeOf(m_state)];
-    //            int version = (int) buf[5 + Marshal.SizeOf(new tagPM_chState())];
-    //			//int version = p;
-    //			//PostMessage(m_hParent, WM_USER + 508, (System.IntPtr)version, (System.IntPtr)m_state);
-    //		}
-    //	}
-    //	/*********************************************************************************************************
-    //		Function: Deal frame from Device
-    //	*/
-    //	public void cmdRP(byte[] buf)
-    //    {
-    //        ushort len = (ushort)(buf[1]);
-    //        if ((DefineConstants.DEFAULT_PRO_CMD_LEN + Marshal.SizeOf(new tagRec())) == len)
-    //		{
+//            byte[] dstArray = new byte[Marshal.SizeOf(new tagRec())];
+//            Buffer.BlockCopy(buf, 5, dstArray, 0, dstArray.Length);
+//            tagPM_chState p = new tagPM_chState();
+//            BytesToStruct(dstArray, dstArray.Length, p);        //获得对象
+//                                                                //C++ TO C//# CONVERTER CRACKED BY X-CRACKER 2017 TODO TASK: C//# does not have an equivalent to pointers to value types:
+//                                                                //ORIGINAL LINE: int *p = (int*)&buf[5+Marshal.SizeOf(m_state)];
+//            int version = (int) buf[5 + Marshal.SizeOf(new tagPM_chState())];
+//			//int version = p;
+//			//PostMessage(m_hParent, WM_USER + 508, (System.IntPtr)version, (System.IntPtr)m_state);
+//		}
+//	}
+//	/*********************************************************************************************************
+//		Function: Deal frame from Device
+//	*/
+//	private void cmdRP(byte[] buf)
+//    {
+//        ushort len = (ushort)(buf[1]);
+//        if ((DefineConstants.DEFAULT_PRO_CMD_LEN + Marshal.SizeOf(new tagRec())) == len)
+//		{
 
-    //            byte[] dstArray = new byte[Marshal.SizeOf(new tagRec())];
-    //            Buffer.BlockCopy(buf, 5, dstArray, 0, dstArray.Length);
-    //            tagRec p = new tagRec();
-    //            BytesToStruct(dstArray, dstArray.Length, p);        //获得对象
+//            byte[] dstArray = new byte[Marshal.SizeOf(new tagRec())];
+//            Buffer.BlockCopy(buf, 5, dstArray, 0, dstArray.Length);
+//            tagRec p = new tagRec();
+//            BytesToStruct(dstArray, dstArray.Length, p);        //获得对象
 
-    //           // tagRec p = (tagRec)(buf[ 5]);
+//           // tagRec p = (tagRec)(buf[ 5]);
 
-    //			int ch = p.m_wave.ch;
-    //			if ((ch >= 0) && (ch < DefineConstants.CH_NUM))
-    //			{
-    //                //C++ TO C//# CONVERTER CRACKED BY X-CRACKER 2017 TODO TASK: The memory management function ' Array.Copy' has no equivalent in C//#:
-    //                m_rec[ch] = p;
-    //				// Array.Copy(m_rec[ch], buf[ 5], (Marshal.SizeOf(new tagRec())));
-    //				if (DefineConstants.REC_VALID == m_rec[ch].m_wave.valid) //采集波形记录有效
-    //				{ 
-    //					//global::PostMessageA(m_hParent, WM_USER + 510, (System.IntPtr)ch, (System.IntPtr) m_rec[ch]);
-    ////					if (null != rec)
-    ////					{
-    ////						//tagRec pW = m_pRecBuf + m_recCnt; //计算当前写入位置
-    ////                        rec.Add(p);
-    //////C++ TO C//# CONVERTER CRACKED BY X-CRACKER 2017 TODO TASK: The memory management function ' Array.Copy' has no equivalent in C//#:
-    ////						// Array.Copy(pW, m_rec[ch], (Marshal.SizeOf(new tagRec())));
-    ////						if (DefineConstants.MAX_REC_BUFF == ++m_recCnt)
-    ////						{
-    ////							m_recCnt = 0;
-    ////						}
-    ////					}
-    //				}
-    //			}
-    //		}
-    //	}
-    //	/*********************************************************************************************************
-    //		Function: Deal frame from Device   //报警 
-    //	*/
-    //	public void cmdAL(byte[] buf)
-    //    {
-    //        ushort len = (ushort)(buf[1]);
-    //        if (DefineConstants.FRM_LEN_AL == len)
-    //		{
-    //			int ch = buf[5];
-    //			//global::PostMessageA(m_hParent, WM_USER + 513, 0, (System.IntPtr)ch);
-    //		}
-    //	} 
-    //	public void cmdMS(byte[] buf)
-    //    {
-    //        ushort len = (ushort)(buf[1]);
-    //        if ((DefineConstants.DEFAULT_PRO_CMD_LEN + 2) == len)
-    //		{
-    //			int ch = buf[5];
-    //			int idx = buf[6]; 
-    //		}
-    //	}
+//			int ch = p.m_wave.ch;
+//			if ((ch >= 0) && (ch < DefineConstants.CH_NUM))
+//			{
+//                //C++ TO C//# CONVERTER CRACKED BY X-CRACKER 2017 TODO TASK: The memory management function ' Array.Copy' has no equivalent in C//#:
+//                m_rec[ch] = p;
+//				// Array.Copy(m_rec[ch], buf[ 5], (Marshal.SizeOf(new tagRec())));
+//				if (DefineConstants.REC_VALID == m_rec[ch].m_wave.valid) //采集波形记录有效
+//				{ 
+//					//global::PostMessageA(m_hParent, WM_USER + 510, (System.IntPtr)ch, (System.IntPtr) m_rec[ch]);
+////					if (null != rec)
+////					{
+////						//tagRec pW = m_pRecBuf + m_recCnt; //计算当前写入位置
+////                        rec.Add(p);
+//////C++ TO C//# CONVERTER CRACKED BY X-CRACKER 2017 TODO TASK: The memory management function ' Array.Copy' has no equivalent in C//#:
+////						// Array.Copy(pW, m_rec[ch], (Marshal.SizeOf(new tagRec())));
+////						if (DefineConstants.MAX_REC_BUFF == ++m_recCnt)
+////						{
+////							m_recCnt = 0;
+////						}
+////					}
+//				}
+//			}
+//		}
+//	}
+//	/*********************************************************************************************************
+//		Function: Deal frame from Device   //报警 
+//	*/
+//	private void cmdAL(byte[] buf)
+//    {
+//        ushort len = (ushort)(buf[1]);
+//        if (DefineConstants.FRM_LEN_AL == len)
+//		{
+//			int ch = buf[5];
+//			//global::PostMessageA(m_hParent, WM_USER + 513, 0, (System.IntPtr)ch);
+//		}
+//	} 
+//	private void cmdMS(byte[] buf)
+//    {
+//        ushort len = (ushort)(buf[1]);
+//        if ((DefineConstants.DEFAULT_PRO_CMD_LEN + 2) == len)
+//		{
+//			int ch = buf[5];
+//			int idx = buf[6]; 
+//		}
+//	}
     #endregion
-    /// 计算校验和
-    /// 
-    public bool Checksum(byte[] buf)
+    // 计算校验和
+    private bool Checksum(byte[] buf)
     {
         ushort len = (ushort)(buf[1]);
         if ((DefineConstants.MAX_CMD_LEN < len) || (0 == len))
 		{
 			return false;
-		} 
+		}
+
 //#if CHECKSUM_EN
 		int i;
 		byte sum = 0;
@@ -521,7 +585,7 @@ public class CProtocol
 		}
 //#endif
 	} 
-    public bool sBufGetFrame(ref COMM_FRAME_T frame)
+    private bool sBufGetFrame(ref object frame)
     {
         bool ret = false;
         int i;
@@ -531,18 +595,12 @@ public class CProtocol
         int frmLen; 
         //在buff中查找帧头
         for (i = 0; i < rxCnt; i++)
-        {
             if (FRM_HEADER == buffRX[i])
-            {
-                break; 
-            } 
-        }
+                break;
         start = i;
         if (start != 0)
-        {
             for (i = 0; i < rxCnt - start; i++)
-                buffRX[i] = buffRX[i + start]; 
-        }
+                buffRX[i] = buffRX[i + start];
         rxCnt -= start;
         if (rxCnt >= DEF_FRM_LEN)
         {
@@ -552,10 +610,12 @@ public class CProtocol
             {
                 rxCnt--;
                 for (i = 0; i < rxCnt; i++)
-                    buffRX[i] = buffRX[i + 1];          //？？？？
+                    buffRX[i] = buffRX[i + 1];
                 lng = 0;
             }
-        } 
+        }
+          //MessageBox.Show("766 tagRecItem：" + Marshal.SizeOf(new tagRecItem()));
+            //MessageBox.Show("1532" + Marshal.SizeOf(typeof(tagRec)));
         if (lng != 0)
         {
             frmLen = lng; //frmLen = lng + HEADER_LEN + TAIL_LEN;
@@ -573,8 +633,24 @@ public class CProtocol
                         buffRX[i - end] = buffRX[i];
                     }
                     rxCnt = rxCnt - end;
-                    frame.data = new byte[frmLen - DEF_FRM_LEN]; 
-                    frame = (COMM_FRAME_T)BytesToStruct(buf, frmLen, typeof(COMM_FRAME_T));
+                    //frame.data = new byte[frmLen - DEF_FRM_LEN]; 
+                    if (frmLen == 1543)
+                    {
+                        frame = BytesToStruct(buf, frmLen, typeof(COMM_FRAME_RPT));
+                        RXType.Enqueue(((COMM_FRAME_RPT)frame).type);
+                    }
+                    else
+                    { if (frmLen == 7)
+                        {
+                            frame = BytesToStruct(buf, frmLen, typeof(COMM_FRAME_NODATA));
+                            RXType.Enqueue(((COMM_FRAME_NODATA)frame).type);
+                        }
+                        else
+                        {
+                            frame = BytesToStruct(buf, frmLen, typeof(COMM_FRAME_T));
+                            RXType.Enqueue(((COMM_FRAME_T)frame).type);
+                        }
+                    }
                     ret = true;
                 }
                 else    //if frame tail err, delete frame head, search frame again
@@ -591,7 +667,7 @@ public class CProtocol
 	/*********************************************************************************************************
 		检查帧长有效性
 	*/ 
-	public bool isValidLen(int len)
+	private bool isValidLen(int len)
 	{
 		if ((DefineConstants.DEFAULT_PRO_CMD_LEN == len) || ((DefineConstants.DEFAULT_PRO_CMD_LEN + Marshal.SizeOf(new tagRec())) == len) ||
             ((DefineConstants.DEFAULT_PRO_CMD_LEN + Marshal.SizeOf(new tagCFG())) == len) || ((DefineConstants.DEFAULT_PRO_CMD_LEN 
@@ -617,23 +693,12 @@ public class CProtocol
         return rawdatas;
     }
     //BytesToStruct
-    public   IntPtr buffer = Marshal.AllocHGlobal(2000);
+    IntPtr buffer = Marshal.AllocHGlobal(20000);
     public object BytesToStruct(byte[] buf, int len, Type type)
     {
-         object rtn=null; 
-        try
-        {
-            Marshal.Copy(buf, 0, buffer, len);
-            rtn = Marshal.PtrToStructure(buffer, type);
-
-        }catch(Exception e)
-        {
-            MessageBox.Show(e.ToString());
-        }
-        finally
-        {
-            Marshal.FreeHGlobal(buffer);
-        }
+        object rtn; 
+        Marshal.Copy(buf, 0, buffer, len);
+        rtn = Marshal.PtrToStructure(buffer, type);
         //Marshal.FreeHGlobal(buffer);
         return rtn;
     }
@@ -664,9 +729,9 @@ public class CProtocol
     const int RX_BUFF_SIZE = 20000;
     byte[] buffRX = new byte[RX_BUFF_SIZE];    //RX buffer
     int rxCnt = 0;
-    public static UInt16 DEF_FRM_LEN = 7;//默认帧长度
-    public static UInt16 FRM_LEN_RP = (UInt16)(DEF_FRM_LEN + Marshal.SizeOf(typeof(tagRecItem)));
-    static UInt16 FRM_LEN_MAX = 4096;       //最大帧长度
+    public static UInt16 DEF_FRM_LEN = 7;
+    public static UInt16 FRM_LEN_RP = (UInt16)(DEF_FRM_LEN + 2*Marshal.SizeOf(typeof(tagRec)));
+    static UInt16 FRM_LEN_MAX = FRM_LEN_RP;
     //cmd 
     public const UInt16 FRAME_TYPE_LI = 0x494C; //"LI" Login
     public const UInt16 FRAME_TYPE_LO = 0x4F4C; //"LO" Logout
@@ -685,10 +750,9 @@ public class CProtocol
     public const UInt16 FRAME_TYPE_RC = 0x4352; //"RC" Reset counter
     public const UInt16 FRAME_TYPE_ST = 0x5453; //"ST" Set RTC Time
     public const UInt16 FRAME_TYPE_MS = 0x534D; //"MS" Mode select
-
-    //public const UInt16 FRAME_TYPE_FS = 0x5346; //"FS" Factory Setting
-    //public const UInt16 FRAME_TYPE_DT = 0x5444; //"DT" Start Detection
-    //public const UInt16 FRAME_TYPE_LN = 0x4E4C; //"LN" 传感器上传采样线数据
+    public const UInt16 FRAME_TYPE_FS = 0x5346; //"FS" Factory Setting
+    public const UInt16 FRAME_TYPE_DT = 0x5444; //"DT" Start Detection
+    public const UInt16 FRAME_TYPE_LN = 0x4E4C; //"LN" 传感器上传采样线数据
     public const UInt16 FRAME_TYPE_NK = 0x4E4B; //"NK" Device busy
 
 
