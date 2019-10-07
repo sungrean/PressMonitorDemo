@@ -39,24 +39,24 @@ public enum tagAlmJudge
 }
 
 ////串口指令定义
-//public enum tagProCmd
-//{
-//	PRO_CMD_LOG_IN = 0,
-//	PRO_CMD_LOG_OFF,
-//	PRO_CMD_SWITtagMode,
-//	PRO_CMD_GET_CFG,
-//	PRO_CMD_SET_CFG,
-//	PRO_CMD_GET_REC,
-//	PRO_CMD_CLR_REC,
-//	PRO_CMD_GET_STATE,
-//	PRO_CMD_RST_ALM,
-//	PRO_CMD_REPORT,
-//	PRO_CMD_ALARM,
-//	PRO_CMD_BUSY,
-//	PRO_CMD_RESET_CNT, //20180902    //清除计数器
-//	PRO_CMD_SYNC_TIME, //20180902    //同步系统时间
-//	PRO_CMD_MODEL_SEL, //20190618 选择基准波形
-//}
+public enum tagProCmd
+{
+    PRO_CMD_LOG_IN = 0,
+    PRO_CMD_LOG_OFF,
+    PRO_CMD_SWITtagMode,
+    PRO_CMD_GET_CFG,
+    PRO_CMD_SET_CFG,
+    PRO_CMD_GET_REC,
+    PRO_CMD_CLR_REC,
+    PRO_CMD_GET_STATE,
+    PRO_CMD_RST_ALM,
+    PRO_CMD_REPORT,
+    PRO_CMD_ALARM,
+    PRO_CMD_BUSY,
+    PRO_CMD_RESET_CNT, //20180902    //清除计数器
+    PRO_CMD_SYNC_TIME, //20180902    //同步系统时间
+    PRO_CMD_MODEL_SEL, //20190618 选择基准波形
+}
 
 public class tagPM_chState
 {
@@ -90,18 +90,41 @@ public struct COMM_TX_GEN_HEADER_T
 };
 //串口Rx Tx数据帧结构体
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct COMM_FRAME_T
+public struct COMM_FRAME_RPT              //总长度1543
 {
     public char frameHeader;
-    public char rsvu8_1;		//占位，用于调整字节对齐
+   // public char rsvu8_1;		//占位，用于调整字节对齐
     public UInt16 len;
     public UInt16 type;
-    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8192)]
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1536)]
     public byte[] data; //
     public byte sum;
     public char frameTail;
 };
-
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct COMM_FRAME_NODATA              // 两个数据位
+{
+    public char frameHeader;
+    // public char rsvu8_1;		//占位，用于调整字节对齐
+    public UInt16 len;
+    public UInt16 type;
+    //[MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)]
+    //public byte[] data; //
+    public byte sum;
+    public char frameTail;
+};
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct COMM_FRAME_T              // 两个数据位
+{
+    public char frameHeader;
+    // public char rsvu8_1;		//占位，用于调整字节对齐
+    public UInt16 len;
+    public UInt16 type;
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)]
+    public byte[] data; //
+    public byte sum;
+    public char frameTail;
+};
 public class CProtocol 
 {
     public CProtocol(demo hParent)
@@ -137,11 +160,10 @@ public class CProtocol
     {
         int i;
         bool ret = true;
-        COMM_FRAME_T frame = new COMM_FRAME_T();
+        object frame = new object();
 
         if (len + rxCnt >= RX_BUFF_SIZE)
             return false;
-
         //添加新收到的数据到末端
         for (i = 0; i < len; i++)
             buffRX[i + rxCnt] = rx[i];
@@ -153,12 +175,34 @@ public class CProtocol
         return ret;
     }
 
+    public bool GetRxFrame(ref object frame)      //处理一帧数据
+    {
+        bool ret = false;
+        if (queueRX.Count >= 1)
+        {
+            frame = queueRX.Dequeue();
+            ret = true;
+        }
+        return ret;
+    }
+    public ushort GetRxType()       
+    {
+        ushort ret = 0;
+        if (RXType.Count >= 1)
+        {
+            ret = RXType.Dequeue(); 
+        }
+        return ret;
+    }
+
+
     byte[] frame = new byte[DefineConstants.MAX_CMD_LEN];
     const char FRM_HEADER = '[';
     const char FRM_TAIL = ']';
     const byte DEF_CHECKSUM = 0x55; //default frm checksum
-    Queue<COMM_FRAME_T> queueRX = new Queue<COMM_FRAME_T>(); 
-	public SerialPort m_comm = new SerialPort();
+    Queue<object> queueRX = new Queue<object>();    //因为要保存 不同长度的帧所以用object存
+    Queue<UInt16> RXType = new Queue<UInt16>();     //每次保存的帧类型
+    public SerialPort m_comm = new SerialPort();
 
 
 	/////////////////////////////////////////////////////////////////////////////
@@ -541,15 +585,14 @@ public class CProtocol
 		}
 //#endif
 	} 
-    private bool sBufGetFrame(ref COMM_FRAME_T frame)
+    private bool sBufGetFrame(ref object frame)
     {
         bool ret = false;
         int i;
         int start, end;
         int len = 0;
         int lng = 0;    //LNG in frame
-        int frmLen;
-
+        int frmLen; 
         //在buff中查找帧头
         for (i = 0; i < rxCnt; i++)
             if (FRM_HEADER == buffRX[i])
@@ -562,7 +605,7 @@ public class CProtocol
         if (rxCnt >= DEF_FRM_LEN)
         {
             //lng = frame.len;// lng = *(u16*)(_sBuf[port] + 1);//lng = _sBuf[port][1] * 256 + _sBuf[port][2];
-            lng = (int)buffRX[2] + (int)buffRX[3] * 256;
+            lng = (int)buffRX[1] + (int)buffRX[2] * 256;
             if ((FRM_LEN_MAX < lng) || (lng == 0))  //如果接收到的长度信息不正确，删除缓冲区第一字节
             {
                 rxCnt--;
@@ -570,7 +613,9 @@ public class CProtocol
                     buffRX[i] = buffRX[i + 1];
                 lng = 0;
             }
-        } 
+        }
+          //MessageBox.Show("766 tagRecItem：" + Marshal.SizeOf(new tagRecItem()));
+            //MessageBox.Show("1532" + Marshal.SizeOf(typeof(tagRec)));
         if (lng != 0)
         {
             frmLen = lng; //frmLen = lng + HEADER_LEN + TAIL_LEN;
@@ -588,10 +633,24 @@ public class CProtocol
                         buffRX[i - end] = buffRX[i];
                     }
                     rxCnt = rxCnt - end;
-                    frame.data = new byte[frmLen - DEF_FRM_LEN];
-
-
-                    frame = (COMM_FRAME_T)BytesToStruct(buf, frmLen, typeof(COMM_FRAME_T));
+                    //frame.data = new byte[frmLen - DEF_FRM_LEN]; 
+                    if (frmLen == 1543)
+                    {
+                        frame = BytesToStruct(buf, frmLen, typeof(COMM_FRAME_RPT));
+                        RXType.Enqueue(((COMM_FRAME_RPT)frame).type);
+                    }
+                    else
+                    { if (frmLen == 7)
+                        {
+                            frame = BytesToStruct(buf, frmLen, typeof(COMM_FRAME_NODATA));
+                            RXType.Enqueue(((COMM_FRAME_NODATA)frame).type);
+                        }
+                        else
+                        {
+                            frame = BytesToStruct(buf, frmLen, typeof(COMM_FRAME_T));
+                            RXType.Enqueue(((COMM_FRAME_T)frame).type);
+                        }
+                    }
                     ret = true;
                 }
                 else    //if frame tail err, delete frame head, search frame again
@@ -670,8 +729,8 @@ public class CProtocol
     const int RX_BUFF_SIZE = 20000;
     byte[] buffRX = new byte[RX_BUFF_SIZE];    //RX buffer
     int rxCnt = 0;
-    public static UInt16 DEF_FRM_LEN = 8;
-    public static UInt16 FRM_LEN_RP = (UInt16)(DEF_FRM_LEN + Marshal.SizeOf(typeof(tagRecItem)));
+    public static UInt16 DEF_FRM_LEN = 7;
+    public static UInt16 FRM_LEN_RP = (UInt16)(DEF_FRM_LEN + 2*Marshal.SizeOf(typeof(tagRec)));
     static UInt16 FRM_LEN_MAX = FRM_LEN_RP;
     //cmd 
     public const UInt16 FRAME_TYPE_LI = 0x494C; //"LI" Login
