@@ -385,7 +385,7 @@ namespace PressMonitorDemo
                 }
                  socket.Send(readDataByCmd(cmd));
             } 
-         }
+         } 
         private static byte[] readDataByCmd(byte[] cmd)
         {
             byte[] head = new byte[] {0x00,0x00,0x00,0x00,0x00,0x00,0xff,0x03 }; //1、2两个字节是消息码，3、4是协议标识，5、6是消息长度（后面部分的长度【大段的】），7站好（ff），8功能码（03）
