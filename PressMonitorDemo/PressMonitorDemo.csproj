@@ -75,6 +75,7 @@
     <Compile Include="Protocol.cs" />
     <Compile Include="Rec.cs" />
     <Compile Include="StringFunctions.cs" />
+    <Compile Include="tools.cs" />
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>

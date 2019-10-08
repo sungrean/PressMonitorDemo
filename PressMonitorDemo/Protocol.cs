@@ -73,7 +73,7 @@ public class tagPM_chState
 public struct COMM_TX_GEN_T
 {
     public char frameHeader;
-    public char rsvU8;  //保留，占位，保证与下位机数据结构一致
+    //public char rsvU8;  //保留，占位，保证与下位机数据结构一致
     public UInt16 len;
     public UInt16 type;
     public byte sum;
@@ -84,7 +84,7 @@ public struct COMM_TX_GEN_T
 public struct COMM_TX_GEN_HEADER_T
 {
     public char frameHeader;
-    public char rsvU8;  //保留，占位，保证与下位机数据结构一致
+    //public char rsvU8;  //保留，占位，保证与下位机数据结构一致
     public UInt16 len;
     public UInt16 type;
 };
@@ -219,9 +219,9 @@ public class CProtocol
 				//m_hRcv = CreateThread(0, 0, (LPTHREAD_START_ROUTINE) & rxThread, this, (uint) null, threadId);
                 //开启接收线程
 			}
-			m_RcbBufCnt = 0;
-
-			SwitchMode(tagMode.STOP); 
+			m_RcbBufCnt = 0; 
+			byte[] cmd=SwitchMode(tagMode.STOP);
+            m_comm.Write(cmd, 0, cmd.Length);
 	}
 
 	/////////////////////////////////////////////////////////////////////////////
@@ -232,10 +232,9 @@ public class CProtocol
 	/////////////////////////////////////////////////////////////////////////////
 	public byte[] SwitchMode(tagMode mode)
 	{
-        byte[] data = new byte[2];  
-        data[1] = (byte)(((int)mode >> 8) & 0xFF);          //zhi
-        data[0] = (byte)((int)mode & 0xFF); 
-        byte[] txBuf = GetCmdFrm(FRAME_TYPE_SM,data, 2);
+        byte[] data = new byte[1];   
+        data[0] = (byte)mode ; 
+        byte[] txBuf = GetCmdFrm(FRAME_TYPE_SM,data, (ushort)data.Length);
         return txBuf;
     }
     public byte[] GetCmdFrm(ushort type)
@@ -614,7 +613,7 @@ public class CProtocol
                 lng = 0;
             }
         }
-          //MessageBox.Show("766 tagRecItem：" + Marshal.SizeOf(new tagRecItem()));
+            //MessageBox.Show("766 tagRecItem：" + Marshal.SizeOf(new tagRecItem()));
             //MessageBox.Show("1532" + Marshal.SizeOf(typeof(tagRec)));
         if (lng != 0)
         {

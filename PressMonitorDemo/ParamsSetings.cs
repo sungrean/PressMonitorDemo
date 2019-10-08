@@ -18,13 +18,13 @@ namespace PressMonitorDemo
             InitializeComponent();
             this.hParent = hParent;
             cFG = hParent.cFG;
-            cFG.errAdj = 12f;
+            cFG.errAdj = 0.2f;
         }
 
         private void btkSubmit_Click(object sender, EventArgs e)
         {
             #region //注释下面的代码因为，不用等到提交时才读取修改的参数，而是在编辑的时候修改。
-            
+
             //cFG.code = new tagCode();       //密码有效设置
             //cFG.code.learneEn = comboBoxPswValidLearn.SelectedIndex == 0 ? SYS_CFG_TYPE.CFG_ENABLE : SYS_CFG_TYPE.CFG_DISABLE;
             //cFG.code.modifySettingEn = comboBoxPswValidParam.SelectedIndex == 0 ? SYS_CFG_TYPE.CFG_ENABLE : SYS_CFG_TYPE.CFG_DISABLE;
@@ -57,7 +57,7 @@ namespace PressMonitorDemo
             //cFG.touch.isAdj = DefineConstants.CLR_TOUCH_BY_PC;        
             #endregion
 
-            hParent.cProtocol.SetCfg(cFG);
+            demo.cProtocol.SetCfg(cFG);
             hParent.cFG = cFG;          //值回传给父窗口。
         }
 

@@ -111,7 +111,8 @@ public struct  tagRecItem
 	public int almShift;
 	public int almSC;
 	public int isAlm;
-	public ushort triggerThresh; //触发阈值 本通道 model记录的触发阈值为自动触发模式的触发阈值        ANAL_FirstLearnAutoMode()
+	public int triggerThresh; //触发阈值 本通道 model记录的触发阈值为自动触发模式的触发阈值  ANAL_FirstLearnAutoMode()
+                              //这里由原来的ushort改成int，C++中单个ushort会自动补全为int这里设置为强制按一个字节补全所以读取异常
 
 	//以下参数是分析波形时会用到
 	public int peakIdx; //峰值点位置        ANAL_Align()
